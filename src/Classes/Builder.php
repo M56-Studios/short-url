@@ -161,7 +161,7 @@ class Builder
      */
     public function __construct(Validation $validation = null, KeyGenerator $keyGenerator = null)
     {
-        if (! $validation) {
+        if (!$validation) {
             $validation = new Validation();
         }
 
@@ -191,7 +191,7 @@ class Builder
      */
     public function destinationUrl(string $url): self
     {
-        if (! Str::startsWith($url, ['http://', 'https://'])) {
+        if (!Str::startsWith($url, ['http://', 'https://'])) {
             throw new ShortURLException('The destination URL must begin with http:// or https://');
         }
 
@@ -438,9 +438,9 @@ class Builder
      *
      * @throws ShortURLException
      */
-    public function make(): ShortURL
+    public function make(bool $saveToDatabase = true): ShortURL
     {
-        if (! $this->destinationUrl) {
+        if (!$this->destinationUrl) {
             throw new ShortURLException('No destination URL has been set.');
         }
 
@@ -448,7 +448,7 @@ class Builder
 
         $this->checkKeyDoesNotExist();
 
-        $shortURL = $this->insertShortURLIntoDatabase();
+        $shortURL = $this->insertShortURLIntoDatabase($saveToDatabase);
 
         $this->resetOptions();
 
@@ -460,26 +460,30 @@ class Builder
      *
      * @return ShortURL
      */
-    protected function insertShortURLIntoDatabase(): ShortURL
+    protected function insertShortURLIntoDatabase(bool $saveToDatabase = true): ShortURL
     {
-        return ShortURL::create([
-            'destination_url'                => $this->destinationUrl,
-            'default_short_url'              => config('app.url').'/'.$this->prefix().'/'.$this->urlKey,
-            'url_key'                        => $this->urlKey,
-            'single_use'                     => $this->singleUse,
-            'forward_query_params'           => $this->forwardQueryParams,
-            'track_visits'                   => $this->trackVisits,
-            'redirect_status_code'           => $this->redirectStatusCode,
-            'track_ip_address'               => $this->trackIPAddress,
-            'track_operating_system'         => $this->trackOperatingSystem,
-            'track_operating_system_version' => $this->trackOperatingSystemVersion,
-            'track_browser'                  => $this->trackBrowser,
-            'track_browser_version'          => $this->trackBrowserVersion,
-            'track_referer_url'              => $this->trackRefererURL,
-            'track_device_type'              => $this->trackDeviceType,
-            'activated_at'                   => $this->activateAt,
-            'deactivated_at'                 => $this->deactivateAt,
-        ]);
+        return ShortURL::withoutEvents(function () use ($saveToDatabase) {
+            $options = [
+                'destination_url'                => $this->destinationUrl,
+                'default_short_url'              => config('app.url') . '/' . $this->prefix() . '/' . $this->urlKey,
+                'url_key'                        => $this->urlKey,
+                'single_use'                     => $this->singleUse,
+                'forward_query_params'           => $this->forwardQueryParams,
+                'track_visits'                   => $this->trackVisits,
+                'redirect_status_code'           => $this->redirectStatusCode,
+                'track_ip_address'               => $this->trackIPAddress,
+                'track_operating_system'         => $this->trackOperatingSystem,
+                'track_operating_system_version' => $this->trackOperatingSystemVersion,
+                'track_browser'                  => $this->trackBrowser,
+                'track_browser_version'          => $this->trackBrowserVersion,
+                'track_referer_url'              => $this->trackRefererURL,
+                'track_device_type'              => $this->trackDeviceType,
+                'activated_at'                   => $this->activateAt,
+                'deactivated_at'                 => $this->deactivateAt,
+            ];
+
+            return $saveToDatabase ? ShortURL::create($options) : ShortURL::make($options);
+        });
     }
 
     /**
@@ -514,11 +518,11 @@ class Builder
             $this->forwardQueryParams = config('short-url.forward_query_params') ?? false;
         }
 
-        if (! $this->urlKey) {
+        if (!$this->urlKey) {
             $this->urlKey = $this->keyGenerator->generateRandom();
         }
 
-        if (! $this->activateAt) {
+        if (!$this->activateAt) {
             $this->activateAt = now();
         }
 
